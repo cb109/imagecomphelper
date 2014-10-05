@@ -2,10 +2,10 @@ try(destroyDialog ImageCompHelper.ro)catch()
 
 
 struct ImageCompHelper (
-	/***This script can create lines in the active viewport that act as
-	a visual guide for image composition. They are created as a render
-	effect, so no camera is needed. Just check/uncheck the buttons to
-	display the lines.
+	/***Creates lines in the active viewport that act as a visual guide for image composition.
+
+	They are created as a render effect, so no camera is needed.
+	Just check/uncheck the buttons to display the lines.
 
 	Update 20/12/2012:
 		- Added the golden spiral (similar to Fibonacci spiral).
@@ -27,16 +27,8 @@ struct ImageCompHelper (
 	goldenRatio = 1.6180,
 	inverseGoldenRatio = 0.618047,
 
-	fn updateHighlightColors = (
-		/***When user changes color, update the checkboxes.***/
-		local divisor = 2.5
-		ckb_golden.highlightColor = cp_golden.color / divisor
-		ckb_custom.highlightColor = cp_custom.color / divisor
-		ckb_cross.highlightColor = cp_cross.color / divisor
-		ckb_diagonals.highlightColor = cp_diagonals.color / divisor
-		ckb_thirds.highlightColor = cp_thirds.color / divisor
-		ckb_spiral.highlightColor = cp_spiral.color / divisor
-	),
+	rectangles = #(),  -- Holds sub rectangles for golden spiral.
+	spiralMode = 0,  -- Determine orientation of golden spiral.
 
 	fn drawCircle origin radius startAngle endAngle step clr = (
 		points = #()
@@ -53,10 +45,11 @@ struct ImageCompHelper (
 	),
 
 	fn drawRectangle rect clr = (
-		gw.wPolyline #(rect[1], rect[2], rect[3], rect[4]) true rgb:#(clr,clr,clr,clr)
+		clrArray = #(clr,clr,clr,clr)
+		gw.wPolyline #(rect[1], rect[2], rect[3], rect[4]) true rgb:clrArray
 	),
 
-	fn calcSubRectangle rect blendFactor times = (
+	fn calcSubRectangle rect blendFactor times mode = (
 		/***Gets a rectangle, calculates a new one that is part of the old.
 
 		This fn does not return anything, but instead
@@ -64,7 +57,7 @@ struct ImageCompHelper (
 
 		***/
 		while times > 0 do (
-			case this.spiralMode of (
+			case mode of (
 				-- Choose order of vertices for calculation.
 				-- Basically there are just two working modes (each twice).
 				-- They however are different in creation order.
@@ -101,31 +94,30 @@ struct ImageCompHelper (
 		)
 	),
 
-	fn drawGoldenSpiral fieldX fieldY offsetX offsetY = (
+	fn drawGoldenSpiral fieldX fieldY offsetX offsetY clr = (
 		-- Setup
-		if fieldX > (fieldY * 1.618) then (
-			local w = fieldY * 1.618
+		if fieldX > (fieldY * this.goldenRatio) then (
+			local w = fieldY * this.goldenRatio
 			local h = fieldY
 		)
 		else (
 			local w = fieldX
-			local h = fieldX / 1.618
+			local h = fieldX / this.goldenRatio
 		)
 
-		local oriX = fieldX/2 - w/2  -- Origin x
-		local oriY = fieldY/2 - h/2  -- Origin y
+		local oriX = fieldX / 2 - w / 2  -- Origin x
+		local oriY = fieldY / 2 - h / 2  -- Origin y
 
 		-- 1 means 360 points are connected to
 		-- draw a circle, 2 means 180 etc.
 		local step = 3
-		local clr = cp_spiral.color
 
 		-- Calculation:
 
 		-- Main rectangle
 		append this.rectangles #([oriX + offsetX, oriY + offsetY + h, 0], [oriX + offsetX, oriY + offsetY, 0], [oriX + offsetX + w, oriY + offsetY, 0], [oriX + offsetX + w, oriY + offsetY + h, 0])
 
-		calcSubRectangle rectangles[1] this.inverseGoldenRatio 12
+		calcSubRectangle this.rectangles[1] this.inverseGoldenRatio 12 this.spiralMode
 
 		-- Look up starting orientation to draw circles correctly.
 		local circleStart
@@ -133,7 +125,7 @@ struct ImageCompHelper (
 		local rotationDirection
 
 		-- Note: Lots of experimentation behind these settings...
-		case spiralMode of (
+		case this.spiralMode of (
 			0 : (originIndex = 4; circleStart = 180; rotationDirection = 1)
 			1 : (originIndex = 1; circleStart = 90; rotationDirection = 0)
 			2 : (originIndex = 2; circleStart = 360; rotationDirection = 1)
@@ -171,54 +163,70 @@ struct ImageCompHelper (
 		this.rectangles = #()
 	),
 
-	fn drawGoldenRatio fieldX fieldY offsetX offsetY = (
+	fn drawGoldenRatio fieldX fieldY offsetX offsetY clr = (
+		clrArray = #(clr, clr)
 		gldX = fieldX as float / this.goldenRatio
 		gldY = fieldY as float / this.goldenRatio
-		gw.wPolyline #([gldX+offsetX, 0+offsetY, 0], [gldX+offsetX, fieldY+offsetY-1, 0]) true rgb:#(cp_golden.color, cp_golden.color)
-		gw.wPolyline #([fieldX-gldX+offsetX, 0+offsetY, 0], [fieldX-gldX+offsetX, fieldY+offsetY-1, 0]) true rgb:#(cp_golden.color, cp_golden.color)
-		gw.wPolyline #([0+offsetX, gldY+offsetY, 0], [fieldX+offsetX-1, gldY+offsetY, 0]) true rgb:#(cp_golden.color, cp_golden.color)
-		gw.wPolyline #([0+offsetX, fieldY-gldY+offsetY, 0], [fieldX+offsetX-1, fieldY-gldY+offsetY, 0]) true rgb:#(cp_golden.color, cp_golden.color)
+		gw.wPolyline #([gldX+offsetX, 0+offsetY, 0], [gldX+offsetX, fieldY+offsetY-1, 0]) true rgb:clrArray
+		gw.wPolyline #([fieldX-gldX+offsetX, 0+offsetY, 0], [fieldX-gldX+offsetX, fieldY+offsetY-1, 0]) true rgb:clrArray
+		gw.wPolyline #([0+offsetX, gldY+offsetY, 0], [fieldX+offsetX-1, gldY+offsetY, 0]) true rgb:clrArray
+		gw.wPolyline #([0+offsetX, fieldY-gldY+offsetY, 0], [fieldX+offsetX-1, fieldY-gldY+offsetY, 0]) true rgb:clrArray
 	),
 
-	fn drawCross fieldX fieldY offsetX offsetY = (
+	fn drawCross fieldX fieldY offsetX offsetY clr = (
+		clrArray = #(clr, clr)
 		b = fieldX / 2
 		h = fieldY / 2
-		gw.wPolyline #([b+offsetX, 0+offsetY, 0], [b+offsetX, fieldY+offsetY-1, 0]) true rgb:#(cp_cross.color, cp_cross.color)
-		gw.wPolyline #([0+offsetX, h+offsetY, 0], [fieldX+offsetX-1, h+offsetY, 0]) true rgb:#(cp_cross.color, cp_cross.color)
+		gw.wPolyline #([b+offsetX, 0+offsetY, 0], [b+offsetX, fieldY+offsetY-1, 0]) true rgb:clrArray
+		gw.wPolyline #([0+offsetX, h+offsetY, 0], [fieldX+offsetX-1, h+offsetY, 0]) true rgb:clrArray
 	),
 
-	fn drawCustomLines fieldX fieldY offsetX offsetY = (
-		if spn_XDivs.value > 0 do (
-			b = fieldX / (spn_XDivs.value+1) as float
-			for i=1 to spn_XDivs.value do (
-				gw.wPolyline #([i*b+offsetX, 0+offsetY, 0], [i*b+offsetX, fieldY+offsetY-1, 0]) true rgb:#(cp_custom.color, cp_custom.color)
+	fn drawCustomLines divX divY fieldX fieldY offsetX offsetY clr = (
+		clrArray = #(clr, clr)
+
+		if divX > 0 do (
+			b = fieldX / (divX+1) as float
+			for i=1 to divX do (
+				gw.wPolyline #([i*b+offsetX, 0+offsetY, 0], [i*b+offsetX, fieldY+offsetY-1, 0]) true rgb:clrArray
 			)
 		)
-		if spn_YDivs.value > 0 do (
-			h = fieldY / (spn_YDivs.value+1) as float
-			for i=1 to spn_YDivs.value do (
-				gw.wPolyline #([0+offsetX, i*h+offsetY, 0], [fieldX+offsetX-1, i*h+offsetY, 0]) true rgb:#(cp_custom.color, cp_custom.color)
+
+		if divY > 0 do (
+			h = fieldY / (divY+1) as float
+			for i=1 to divY do (
+				gw.wPolyline #([0+offsetX, i*h+offsetY, 0], [fieldX+offsetX-1, i*h+offsetY, 0]) true rgb:clrArray
 			)
 		)
 	),
 
-	fn drawThirds fieldX fieldY offsetX offsetY = (
+	fn drawThirds fieldX fieldY offsetX offsetY clr = (
+		clrArray = #(clr, clr)
 		b = fieldX / 3
 		h = fieldY / 3
-		gw.wPolyline #([b+offsetX, 0+offsetY, 0], [b+offsetX, 3*h+offsetY-1, 0]) true rgb:#(cp_thirds.color, cp_thirds.color)
-		gw.wPolyline #([2*b+offsetX, 0+offsetY, 0], [2*b+offsetX, 3*h+offsetY-1, 0]) true rgb:#(cp_thirds.color, cp_thirds.color)
-		gw.wPolyline #([0+offsetX, h+offsetY, 0], [3*b+offsetX-1, h+offsetY, 0]) true rgb:#(cp_thirds.color, cp_thirds.color)
-		gw.wPolyline #([0+offsetX, 2*h+offsetY, 0], [3*b+offsetX-1, 2*h+offsetY, 0]) true rgb:#(cp_thirds.color, cp_thirds.color)
+		gw.wPolyline #([b+offsetX, 0+offsetY, 0], [b+offsetX, 3*h+offsetY-1, 0]) true rgb:clrArray
+		gw.wPolyline #([2*b+offsetX, 0+offsetY, 0], [2*b+offsetX, 3*h+offsetY-1, 0]) true rgb:clrArray
+		gw.wPolyline #([0+offsetX, h+offsetY, 0], [3*b+offsetX-1, h+offsetY, 0]) true rgb:clrArray
+		gw.wPolyline #([0+offsetX, 2*h+offsetY, 0], [3*b+offsetX-1, 2*h+offsetY, 0]) true rgb:clrArray
 	),
 
-	fn drawDiagonals  fieldX fieldY offsetX offsetY = (
-		gw.wPolyline #([0+offsetX, 0+offsetY, 0], [fieldX+offsetX, fieldY+offsetY, 0]) true rgb:#(cp_diagonals.color, cp_diagonals.color)
-		gw.wPolyline #([0+offsetX, fieldY+offsetY, 0], [fieldX+offsetX, 0+offsetY, 0]) true rgb:#(cp_diagonals.color, cp_diagonals.color)
+	fn drawDiagonals  fieldX fieldY offsetX offsetY clr = (
+		clrArray = #(clr, clr)
+		gw.wPolyline #([0+offsetX, 0+offsetY, 0], [fieldX+offsetX, fieldY+offsetY, 0]) true rgb:clrArray
+		gw.wPolyline #([0+offsetX, fieldY+offsetY, 0], [fieldX+offsetX, 0+offsetY, 0]) true rgb:clrArray
 	),
 
 	fn prepareAndDraw = (
-		/***This is the main execution function that lives in the callback.***/
-		if ckb_thirds.checked or ckb_golden.checked or ckb_cross.checked or ckb_diagonals.checked or ckb_custom.checked or ckb_spiral.checked do (
+		/***This is the main execution function that lives in the callback.
+
+		Note: It gets its input directly from the GUI, so changes are reflected instantly.
+
+		***/
+		main = ImageCompHelper
+		gui = ImageCompHelper.ro
+
+		if gui.ckb_thirds.checked or gui.ckb_golden.checked or \
+		gui.ckb_cross.checked or gui.ckb_diagonals.checked or \
+		gui.ckb_custom.checked or gui.ckb_spiral.checked do (
 
 			if not displaysafeframes do
 				displaysafeframes = true
@@ -251,12 +259,23 @@ struct ImageCompHelper (
 			)
 
 			-- Draw:
-			if ckb_custom.checked do drawCustomLines fieldX fieldY offsetX offsetY
-			if ckb_spiral.checked do drawGoldenSpiral fieldX fieldY offsetX offsetY
-			if ckb_golden.checked do drawGoldenRatio fieldX fieldY offsetX offsetY
-			if ckb_thirds.checked do drawThirds fieldX fieldY offsetX offsetY
-			if ckb_diagonals.checked do drawDiagonals fieldX fieldY offsetX offsetY
-			if ckb_cross.checked do drawCross fieldX fieldY offsetX offsetY
+			if gui.ckb_custom.checked do
+				main.drawCustomLines gui.spn_XDivs.value gui.spn_YDivs.value fieldX fieldY offsetX offsetY gui.cp_custom.color
+
+			if gui.ckb_spiral.checked do
+				main.drawGoldenSpiral fieldX fieldY offsetX offsetY gui.cp_spiral.color
+
+			if gui.ckb_golden.checked do
+				main.drawGoldenRatio fieldX fieldY offsetX offsetY gui.cp_golden.color
+
+			if gui.ckb_thirds.checked do
+				main.drawThirds fieldX fieldY offsetX offsetY gui.cp_thirds.color
+
+			if gui.ckb_diagonals.checked do
+				main.drawDiagonals fieldX fieldY offsetX offsetY gui.cp_diagonals.color
+
+			if gui.ckb_cross.checked do
+				main.drawCross fieldX fieldY offsetX offsetY gui.cp_cross.color
 
 			gw.enlargeUpdateRect #whole
 			gw.updateScreen()
@@ -266,12 +285,8 @@ struct ImageCompHelper (
 
 	ro = rollout ro "Overlay" width:112 height:194 (
 
-		-- Parent struct reference
-		local self
-
-		-- Golden spiral settings
-		local rectangles = #()
-		local spiralMode = 0
+		local self  -- Parent struct reference
+		local colorDivisor = 2.5
 
 		colorPicker cp_custom "" pos:[-1,52] width:23 height:22 color:(color 0 255 0)
 		colorPicker cp_thirds "" pos:[-1,77] width:23 height:22 color:(color 255 255 0)
@@ -289,92 +304,127 @@ struct ImageCompHelper (
 		spinner spn_XDivs "X Divs:" pos:[27,15] width:80 height:16 range:[0,999,4] type:#integer scale:1
 		spinner spn_YDivs "Y Divs:" pos:[27,33] width:80 height:16 range:[0,999,4] type:#integer scale:1
 
-		on ro open do (
-			unregisterRedrawViewsCallback prepareAndDraw
-			registerRedrawViewsCallback prepareAndDraw
-			if not displaysafeframes do
-				displaysafeframes = true
-			updateHighlightColors()
-			-- Force display of safeFrame on script startup:
-			redrawViews()
-		)--end on
+		fn updateHighlightColors force:true = (
+			/***When user changes color, update the checkboxes.***/
+			ckb_golden.highlightColor = cp_golden.color / colorDivisor
+			ckb_custom.highlightColor = cp_custom.color / colorDivisor
+			ckb_cross.highlightColor = cp_cross.color / colorDivisor
+			ckb_diagonals.highlightColor = cp_diagonals.color / colorDivisor
+			ckb_thirds.highlightColor = cp_thirds.color / colorDivisor
+			ckb_spiral.highlightColor = cp_spiral.color / colorDivisor
+
+			-- Force update of GUI by flipping checkbox states twice:
+			if force do (
+				ckb_golden.checked = not ckb_golden.checked
+				ckb_custom.checked = not ckb_custom.checked
+				ckb_cross.checked = not ckb_cross.checked
+				ckb_diagonals.checked = not ckb_diagonals.checked
+				ckb_thirds.checked = not ckb_thirds.checked
+				ckb_spiral.checked = not ckb_spiral.checked
+
+				ckb_golden.checked = not ckb_golden.checked
+				ckb_custom.checked = not ckb_custom.checked
+				ckb_cross.checked = not ckb_cross.checked
+				ckb_diagonals.checked = not ckb_diagonals.checked
+				ckb_thirds.checked = not ckb_thirds.checked
+				ckb_spiral.checked = not ckb_spiral.checked
+			)
+		)
 
 		on ro close do (
-			unregisterRedrawViewsCallback prepareAndDraw
-			redrawViews()
+			self.unregisterCallbacks()
 		)
 
 		on ckb_thirds changed theState do (
-			updateHighlightColors()
 			redrawViews()
 		)
 
 		on ckb_golden changed theState do (
-			updateHighlightColors()
 			redrawViews()
 		)
 
 		on ckb_cross changed theState do (
-			updateHighlightColors()
 			redrawViews()
 		)
 
 		on ckb_diagonals changed theState do (
-			updateHighlightColors()
 			redrawViews()
 		)
 
 		on ckb_custom changed theState do (
-			updateHighlightColors()
 			redrawViews()
 		)
 
 		on ckb_spiral changed theState do (
-			updateHighlightColors()
 			redrawViews()
 		)
 
 		on ckb_spiral rightclick do (
-			spiralMode += 1
-			if spiralMode > 3 do spiralMode = 0
+			self.spiralMode += 1
+			if self.spiralMode > 3 do
+				self.spiralMode = 0
 			redrawViews()
 		)
 		on cp_thirds changed clr do (
+			updateHighlightColors()
 			redrawViews()
 		)
 
 		on cp_golden changed clr do (
+			updateHighlightColors()
 			redrawViews()
 		)
 
 		on cp_cross changed clr do (
+			updateHighlightColors()
 			redrawViews()
 		)
 
 		on cp_diagonals changed clr do (
+			updateHighlightColors()
 			redrawViews()
 		)
 
 		on cp_custom changed clr do (
+			updateHighlightColors()
 			redrawViews()
 		)
 
 		on cp_spiral changed clr do (
+			updateHighlightColors()
 			redrawViews()
 		)
 
 		on spn_XDivs changed theValue do (
-			max views redraw
+			redrawViews()
 		)
 
 		on spn_YDivs changed theValue do (
-			max views redraw
+			redrawViews()
 		)
 	),
 
+	fn registerCallbacks = (
+		unregisterRedrawViewsCallback this.prepareAndDraw
+		registerRedrawViewsCallback this.prepareAndDraw
+	),
+
+	fn unregisterCallbacks = (
+		unregisterRedrawViewsCallback this.prepareAndDraw
+		completeRedraw()
+	),
+
 	fn show = (
+		this.registerCallbacks()
+
 		createDialog this.ro
 		this.ro.self = this
+		this.ro.updateHighlightColors()
+
+		-- Force display of safeFrame on script startup:
+		if not displaysafeframes do
+			displaysafeframes = true
+		redrawViews()
 	)
 )
 
