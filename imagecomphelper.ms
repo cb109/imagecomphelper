@@ -376,6 +376,8 @@ struct ImageCompHelper (
 				ckb_spiral.checked = not ckb_spiral.checked
 				ckb_triangle.checked = not ckb_triangle.checked
 			)
+
+			redrawViews()
 		)
 
 		on ro close do (
@@ -384,89 +386,81 @@ struct ImageCompHelper (
 		)
 
 		on ckb_thirds changed theState do (
-			redrawViews()
+			updateHighlightColors()
 		)
 
 		on ckb_golden changed theState do (
-			redrawViews()
+			updateHighlightColors()
 		)
 
 		on ckb_cross changed theState do (
-			redrawViews()
+			updateHighlightColors()
 		)
 
 		on ckb_diagonals changed theState do (
-			redrawViews()
+			updateHighlightColors()
 		)
 
 		on ckb_custom changed theState do (
-			redrawViews()
+			updateHighlightColors()
 		)
 
 		on ckb_spiral changed theState do (
-			redrawViews()
+			updateHighlightColors()
 		)
 
         on ckb_triangle changed theState do (
             updateHighlightColors()
-            completeRedraw()
         )
 
 		on ckb_spiral rightclick do (
 			self.spiralMode += 1
 			if self.spiralMode > 3 do
 				self.spiralMode = 0
-			redrawViews()
+			updateHighlightColors
 		)
 
         on ckb_triangle rightClick do (
             self.triangleMode += 1
             if self.triangleMode > 1 do
             	self.triangleMode = 0
-            completeRedraw()
+            updateHighlightColors()
         )
 
 		on cp_thirds changed clr do (
 			updateHighlightColors()
-			redrawViews()
 		)
 
 		on cp_golden changed clr do (
 			updateHighlightColors()
-			redrawViews()
 		)
 
 		on cp_cross changed clr do (
 			updateHighlightColors()
-			redrawViews()
 		)
 
 		on cp_diagonals changed clr do (
 			updateHighlightColors()
-			redrawViews()
 		)
 
 		on cp_custom changed clr do (
 			updateHighlightColors()
-			redrawViews()
 		)
 
 		on cp_spiral changed clr do (
 			updateHighlightColors()
-			redrawViews()
 		)
 
         on cp_triangle changed clr do (
             updateHighlightColors()
-            completeRedraw()
         )
 
 		on spn_XDivs changed theValue do (
-			redrawViews()
+			updateHighlightColors()
 		)
 
 		on spn_YDivs changed theValue do (
-			redrawViews()
+			updateHighlightColors()
 		)
 
 		on btn_cam pressed do (
@@ -527,9 +521,8 @@ struct ImageCompHelper (
 
 		createDialog this.ro
 		this.ro.self = this
-		this.ro.updateHighlightColors()
-
 		this.rollout_from_INI()
+		this.ro.updateHighlightColors()
 
 		-- Force display of safeFrame on script startup:
 		if not displaysafeframes do
