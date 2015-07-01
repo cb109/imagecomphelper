@@ -21,6 +21,9 @@ struct ImageCompHelper (
 	www.cbuelter.de
 
 	***/
+	iniFile = (getDir #userscripts) + "\\" + "imageCompHelper.ini",
+	iniProps = #("value", "color", "checked"),
+
 	goldenRatio = 1.6180,
 	inverseGoldenRatio = 0.618047,
 
@@ -377,6 +380,7 @@ struct ImageCompHelper (
 
 		on ro close do (
 			self.unregisterCallbacks()
+			self.rollout_to_INI()
 		)
 
 		on ckb_thirds changed theState do (
@@ -468,13 +472,45 @@ struct ImageCompHelper (
 		on btn_cam pressed do (
 			actionMan.executeAction 0 "40247"  -- Views: Select Viewport Node
 			max tti
+			max modify mode
 		)
 
 		on btn_target pressed do (
 			actionMan.executeAction 0 "40248"  -- Views: Select Viewport Node Target
 			max tti
+			max modify mode
 		)
 	),
+
+    fn rollout_to_INI = (
+        setINISetting this.iniFile this.ro.name "pos" ((getDialogPos ro) as String)
+        for prop in this.iniProps do
+            for con in this.ro.controls where isProperty con prop do
+                setINISetting this.iniFile con.name prop ((getProperty con prop) as String)
+    ),
+
+    fn rollout_from_INI = (
+        pos = (getINISetting this.iniFile this.ro.name "pos")
+        if pos != "" do (
+            tokens = filterString pos "[],"
+            pos = point2 (tokens[1] as float) (tokens[2] as float)
+            setDialogPos this.ro pos
+        )
+        for prop in this.iniProps do
+            for con in this.ro.controls where isProperty con prop do (
+                iniVal = getINISetting this.iniFile con.name prop
+                if iniVal != "" do (
+                    cls = classof (getProperty con prop)
+                    if cls == color then (
+                        tokens = filterstring iniVal "() "
+                        val = color (tokens[2] as float) (tokens[3] as float) (tokens[4] as float)
+                    )
+                    else
+                        val = (getINISetting this.iniFile con.name prop) as cls
+                    setProperty con prop val
+                )
+            )
+    ),
 
 	fn registerCallbacks = (
 		unregisterRedrawViewsCallback this.prepareAndDraw
@@ -492,6 +528,8 @@ struct ImageCompHelper (
 		createDialog this.ro
 		this.ro.self = this
 		this.ro.updateHighlightColors()
+
+		this.rollout_from_INI()
 
 		-- Force display of safeFrame on script startup:
 		if not displaysafeframes do
