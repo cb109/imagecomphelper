@@ -7,29 +7,37 @@
 	written by Christoph Buelter 23.11.10
 	www.cbuelter.de
 
-	Update 20/12/2012: 
-		- Added the golden spiral (similar to Fibonacci spiral). Note: This by nature is fixed to an aspect of 1:1.618
-		- Color selection now reflects instantly
-	Update 21/10/2012: Added option to pick custom colors
-	Update 25/11/2010: Fixed bug with non working playanimation-button. Added custom overlay options and did some UI changes.
+	Update 20/04/2013:	Added Golden Triangle (flip by rightclicking)
+	Update 05/02/2013:	Buttons now change color instantly, changed coloring of lines from rgb array to gw.setColor so it works with Nitrous
+	Update 20/12/2012:	Added the golden spiral (similar to Fibonacci spiral). Note: This by nature is fixed to an aspect of 1:1.618
+					Color selection now reflects instantly
+	Update 21/10/2012:	Added option to pick custom colors
+	Update 25/11/2010:	Fixed bug with non working playanimation-button. Added custom overlay options and did some UI changes.
 	
 	ToDo:
-		-- make spiral work in portrait mode
+		-- make spiral work in portrait mode, make it distortable
 **/
 
 --macroscript imageCompHelper
 --category:"Buelter"
 (
-	try(destroyDialog ro_imageCompHelper)catch()
-	rollout ro_imageCompHelper "Overlay" width:112 height:194
+	global gRo_imageCompHelper
+	
+	try(destroyDialog gRo_imageCompHelper)catch()
+	rollout gRo_imageCompHelper "Overlay" width:112 height:246
 	(
 		/**************************************
 				VARIABLES
 		**************************************/		
 		
+		local theINI = (getDir #userscripts) + "\\" + "imageCompHelper.ini"
+		local iniProps = #("value", "color", "checked")
+		
 		-- ONLY FOR GOLDEN SPIRAL
 		local rectangles = #() -- rectangles for golden spiral
 		local spiralMode = 0
+		
+		local triangleMode = 0
 		
 		
 		/**************************************
@@ -40,27 +48,83 @@
 		colorPicker cp_thirds "" pos:[-1,77] width:23 height:22 color:(color 255 255 0)
 		colorPicker cp_diagonals "" pos:[-1,100] width:23 height:22 color:(color 255 0 0)
 		colorPicker cp_golden "" pos:[-1,123] width:23 height:22 color:(color 255 110 0)
-		colorPicker cp_spiral "" pos:[-1,147] width:23 height:22 color:(color 255 255 255)
-		colorPicker cp_cross "" pos:[-1,171] width:23 height:22 color:(color 0 0 155)
+		colorPicker cp_spiral "" pos:[-1,169] width:23 height:22 color:(color 255 255 255)
+		colorPicker cp_cross "" pos:[-1,192] width:23 height:22 color:(color 0 0 155)
+		colorPicker cp_triangle "" pos:[-1,146] width:23 height:22 color:(color 0 255 175)
+
 		checkbutton ckb_thirds "Rule of Thirds" pos:[23,77] width:88 height:22 toolTip:"" checked:false
 		checkbutton ckb_golden "Golden Ratio" pos:[23,123] width:88 height:22 toolTip:"" checked:false
-		checkbutton ckb_cross "Center Cross" pos:[23,171] width:88 height:22 toolTip:"" checked:false
+		checkbutton ckb_cross "Center Cross" pos:[23,192] width:88 height:22 toolTip:"" checked:false
 		checkbutton ckb_diagonals "Diagonals" pos:[23,100] width:88 height:22 toolTip:"" checked:false
 		checkbutton ckb_custom "Custom" pos:[23,52] width:86 height:22 toolTip:"" checked:false		
-		checkbutton ckb_spiral "Golden Spiral" pos:[23,147] width:88 height:22 toolTip:"Rightclick to flip spiral" checked:false
+		
+		checkbutton ckb_spiral "Golden Spiral" pos:[23,169] width:88 height:22 toolTip:"Rightclick to flip" checked:false
+		checkbutton ckb_triangle "Golden Triangle" pos:[23,146] width:88 height:22 toolTip:"Rightclick to flip" checked:false
+		
 		GroupBox grp_custom "Custom:" pos:[1,0] width:110 height:76
 		spinner spn_XDivs "X Divs:" pos:[27,15] width:80 height:16 range:[0,999,4] type:#integer scale:1
 		spinner spn_YDivs "Y Divs:" pos:[27,33] width:80 height:16 range:[0,999,4] type:#integer scale:1
-		
+		button btn_cam "Camera" pos:[1,216] width:62 height:28
+		button btn_target "Target" pos:[65,216] width:46 height:28
 		
 		/**************************************
 				FUNCTIONS
 		**************************************/	
 		
+		fn rollout_to_INI iniFile ro iniProps =
+		(
+			setINISetting iniFile ro.name "pos" ((getDialogPos ro) as String)
+			for prop in iniProps do
+				for con in ro.controls where isProperty con prop do
+					setINISetting iniFile con.name prop ((getProperty con prop) as String)
+		)--end fn
+		
+		fn rollout_from_INI iniFile ro iniProps = 
+		(
+			pos = (getINISetting iniFile ro.name "pos")
+			if pos != "" do
+			(
+				tokens = filterString pos "[],"
+				pos = point2 (tokens[1] as float) (tokens[2] as float)
+				setDialogPos ro pos 
+			)--end if
+			for prop in iniProps do
+				for con in ro.controls where isProperty con prop do
+				(
+					iniVal = getINISetting iniFile con.name prop
+					if iniVal != "" do
+					(
+						cls = classof (getProperty con prop)
+						if cls == color then
+						(
+							tokens = filterstring iniVal "() "
+							val = color (tokens[2] as float) (tokens[3] as float) (tokens[4] as float)
+						)						
+						else
+							val = (getINISetting iniFile con.name prop) as cls
+						setProperty con prop val
+					)--end if
+				)--end for
+		)--end fn			
+		
+		/**
+			Maps one range to another 
+		**/
+		fn mapValue val leftMin leftMax rightMin rightMax =
+		(
+			-- Figure out how 'wide' each range is
+			leftSpan = leftMax - leftMin
+			rightSpan = rightMax - rightMin
+			-- Convert the left range into a 0-1 range (float)
+			valueScaled = (val - leftMin) as float / (leftSpan) as float
+			-- Convert the 0-1 range into a value in the right range.
+			rightMin + (valueScaled * rightSpan) -- return
+		)--end fn
+		
 		/**
 			When user changes color, update the checkboxes
 		**/
-		fn updateHighlightColors=
+		fn updateHighlightColors =
 		(
 			local divisor = 2.5
 			ckb_golden.highlightColor = cp_golden.color / divisor
@@ -68,10 +132,22 @@
 			ckb_cross.highlightColor = cp_cross.color / divisor
 			ckb_diagonals.highlightColor = cp_diagonals.color / divisor
 			ckb_thirds.highlightColor = cp_thirds.color / divisor
-			ckb_spiral.highlightColor = cp_spiral.color / divisor			
+			ckb_spiral.highlightColor = cp_spiral.color / divisor
+			ckb_triangle.highlightColor = cp_triangle.color / divisor
+
+			-- force btn color update with this trick
+			local ckbs = #()
+			local oldCaptions = #()
+			for ctrl in gRo_imageCompHelper.controls where classof ctrl == CheckButtonControl do
+				append ckbs ctrl
+			oldCaptions = for c in ckbs collect c.caption
+			-- change name to anything
+			for c in ckbs do c.caption = ""
+			-- then change it back to old name
+			for i=1 to ckbs.count do ckbs[i].caption = oldCaptions[i]
 		)--end fn
 		
-		fn drawCircle origin radius startAngle endAngle step clr=
+		fn drawCircle origin radius startAngle endAngle step clr =
 		(
 			points = #()
 			for i in startAngle to endAngle by step do
@@ -84,19 +160,21 @@
 			
 			for j=1 to (points.count-1) do
 			(
-				gw.wPolyline #(points[j], points[j+1]) false rgb:#(clr,clr)
+				gw.setColor #line clr
+				gw.wPolyline #(points[j], points[j+1]) false 
 			)--end for	
 		)--end fn
 		
-		fn drawRectangle rect clr=
+		fn drawRectangle rect clr =
 		(
-			gw.wPolyline #(rect[1], rect[2], rect[3], rect[4]) true rgb:#(clr,clr,clr,clr)
+			gw.setColor #line clr
+			gw.wPolyline #(rect[1], rect[2], rect[3], rect[4]) true 
 		)--end fn		
 
 		/**
 			Gets a rectangle, calculates a new one that is part of the old
 		**/
-		fn calcSubRectangle rect blendFactor times=
+		fn calcSubRectangle rect blendFactor times =
 		(
 			while times > 0 do
 			(
@@ -111,13 +189,13 @@
 					3: (A = rect[1]; B = rect[2]; C = rect[3]; D = rect[4])
 				)--end case
 			
-				eX = B.x + blendFactor * (C.x - B.x)
-				eY = B.y + blendFactor * (C.y - B.y)
-				E = [eX, eY, 0]
+				local eX = B.x + blendFactor * (C.x - B.x)
+				local eY = B.y + blendFactor * (C.y - B.y)
+				local E = [eX, eY, 0]
 				
-				fX = A.x + blendFactor * (D.x - A.x)
-				fY = A.y + blendFactor * (D.y - A.y)
-				F = [fX, fY, 0]
+				local fX = A.x + blendFactor * (D.x - A.x)
+				local fY = A.y + blendFactor * (D.y - A.y)
+				local F = [fX, fY, 0]
 				
 				-- choose order for newRect
 				-- create new rectangle with different vertex order, append and repeat
@@ -134,16 +212,13 @@
 				times -= 1 
 				
 				if times > 0 do
-				(
 					rect = newRect
-				)--end if
 			)--end while
 			
 		)--end fn
 		
 		fn drawGoldenSpiral fieldX fieldY offsetX offsetY=
 		(
-
 			-- SETUP
 			if fieldX > (fieldY * 1.618) then
 			(
@@ -166,8 +241,8 @@
 			-- main rectangle
 			append rectangles #([oriX + offsetX, oriY + offsetY + h, 0], [oriX + offsetX, oriY + offsetY, 0], [oriX + offsetX + w, oriY + offsetY, 0], [oriX + offsetX + w, oriY + offsetY + h, 0])
 
-			calcSubRectangle rectangles[1] 0.618047 12
 			-- calculate n sub-rectangles by inverse of golden ratio (1/1.618) == 0.618047
+			calcSubRectangle rectangles[1] 0.618047 12
 			
 			-- look up starting orientation to draw circles correctly
 			local circleStart 
@@ -222,18 +297,53 @@
 		(
 			gldX = fieldX as float / 1.6180
 			gldY = fieldY as float / 1.6180
-			gw.wPolyline #([gldX+offsetX, 0+offsetY, 0], [gldX+offsetX, fieldY+offsetY-1, 0]) true rgb:#(cp_golden.color, cp_golden.color)
-			gw.wPolyline #([fieldX-gldX+offsetX, 0+offsetY, 0], [fieldX-gldX+offsetX, fieldY+offsetY-1, 0]) true rgb:#(cp_golden.color, cp_golden.color)
-			gw.wPolyline #([0+offsetX, gldY+offsetY, 0], [fieldX+offsetX-1, gldY+offsetY, 0]) true rgb:#(cp_golden.color, cp_golden.color)
-			gw.wPolyline #([0+offsetX, fieldY-gldY+offsetY, 0], [fieldX+offsetX-1, fieldY-gldY+offsetY, 0]) true rgb:#(cp_golden.color, cp_golden.color)
+			gw.setColor #line cp_golden.color
+			gw.wPolyline #([gldX+offsetX, 0+offsetY, 0], [gldX+offsetX, fieldY+offsetY-1, 0]) true 
+			gw.wPolyline #([fieldX-gldX+offsetX, 0+offsetY, 0], [fieldX-gldX+offsetX, fieldY+offsetY-1, 0]) true 
+			gw.wPolyline #([0+offsetX, gldY+offsetY, 0], [fieldX+offsetX-1, gldY+offsetY, 0]) true
+			gw.wPolyline #([0+offsetX, fieldY-gldY+offsetY, 0], [fieldX+offsetX-1, fieldY-gldY+offsetY, 0]) true
+		)--end fn
+		
+		fn drawGoldenTriangle fieldX fieldY offsetX offsetY=
+		(		
+			-- Function by Enrico Gulloti, see: http://www.illusioncatalyst.com/mxs_files/geometryCalcs.html#getPointAlongLine
+			function getPointAlongLine &p3LinePoint_1 &p3LinePoint_2 fProp =
+			(
+				return (p3LinePoint_1 + (p3LinePoint_2 - p3LinePoint_1) * fProp)
+			)
+			
+			gw.setColor #line cp_triangle.color
+			
+			case triangleMode of
+			(	
+				0 : (
+						dia1 = [0+offsetX, fieldY+offsetY, 0]
+						dia2 = [fieldX+offsetX, 0+offsetY, 0]
+						cor1 = [fieldX+offsetX, fieldY+offsetY, 0]
+						cor2 = [0+offsetX, 0+offsetY, 0]
+					)
+				1 : (
+						dia1 = [0+offsetX, 0+offsetY, 0] 
+						dia2 = [fieldX+offsetX, fieldY+offsetY, 0]
+						cor1 = [fieldX+offsetX, 0+offsetY, 0] 
+						cor2 = [0+offsetX, fieldY+offsetY, 0]
+					)
+			)--end case
+			
+			gw.wPolyline #(dia1, dia2 ) true -- diagonal
+			pt1 = getPointAlongLine dia1 dia2 (1/1.6180)
+			pt2 = getPointAlongLine dia1 dia2 (1-(1/1.6180))
+			gw.wPolyline #(cor1, pt1) false 
+			gw.wPolyline #(cor2, pt2) false 
 		)--end fn
 		
 		fn drawCross fieldX fieldY offsetX offsetY=
 		(
 			b = fieldX / 2
 			h = fieldY / 2
-			gw.wPolyline #([b+offsetX, 0+offsetY, 0], [b+offsetX, fieldY+offsetY-1, 0]) true rgb:#(cp_cross.color, cp_cross.color)
-			gw.wPolyline #([0+offsetX, h+offsetY, 0], [fieldX+offsetX-1, h+offsetY, 0]) true rgb:#(cp_cross.color, cp_cross.color)
+			gw.setColor #line cp_cross.color
+			gw.wPolyline #([b+offsetX, 0+offsetY, 0], [b+offsetX, fieldY+offsetY-1, 0]) true 
+			gw.wPolyline #([0+offsetX, h+offsetY, 0], [fieldX+offsetX-1, h+offsetY, 0]) true 
 		)--end fn
 	
 		fn drawCustomLines fieldX fieldY offsetX offsetY=
@@ -242,16 +352,18 @@
 			(
 				b = fieldX / (spn_XDivs.value+1) as float
 				for i=1 to spn_XDivs.value do
-				(					
-					gw.wPolyline #([i*b+offsetX, 0+offsetY, 0], [i*b+offsetX, fieldY+offsetY-1, 0]) true rgb:#(cp_custom.color, cp_custom.color)
+				(				
+					gw.setColor #line cp_custom.color
+					gw.wPolyline #([i*b+offsetX, 0+offsetY, 0], [i*b+offsetX, fieldY+offsetY-1, 0]) true
 				)--end for
 			)--end if
 			if spn_YDivs.value > 0 do
 			(
 				h = fieldY / (spn_YDivs.value+1) as float
 				for i=1 to spn_YDivs.value do
-				(					
-					gw.wPolyline #([0+offsetX, i*h+offsetY, 0], [fieldX+offsetX-1, i*h+offsetY, 0]) true rgb:#(cp_custom.color, cp_custom.color)
+				(				
+					gw.setColor #line cp_custom.color
+					gw.wPolyline #([0+offsetX, i*h+offsetY, 0], [fieldX+offsetX-1, i*h+offsetY, 0]) true 
 				)--end for
 			)--end if
 		)--end fn
@@ -260,24 +372,32 @@
 		(
 			b = fieldX / 3
 			h = fieldY / 3
-			gw.wPolyline #([b+offsetX, 0+offsetY, 0], [b+offsetX, 3*h+offsetY-1, 0]) true rgb:#(cp_thirds.color, cp_thirds.color)
-			gw.wPolyline #([2*b+offsetX, 0+offsetY, 0], [2*b+offsetX, 3*h+offsetY-1, 0]) true rgb:#(cp_thirds.color, cp_thirds.color)
-			gw.wPolyline #([0+offsetX, h+offsetY, 0], [3*b+offsetX-1, h+offsetY, 0]) true rgb:#(cp_thirds.color, cp_thirds.color)
-			gw.wPolyline #([0+offsetX, 2*h+offsetY, 0], [3*b+offsetX-1, 2*h+offsetY, 0]) true rgb:#(cp_thirds.color, cp_thirds.color)
+			gw.setColor #line cp_thirds.color
+			gw.wPolyline #([b+offsetX, 0+offsetY, 0], [b+offsetX, 3*h+offsetY-1, 0]) true 
+			gw.wPolyline #([2*b+offsetX, 0+offsetY, 0], [2*b+offsetX, 3*h+offsetY-1, 0]) true 
+			gw.wPolyline #([0+offsetX, h+offsetY, 0], [3*b+offsetX-1, h+offsetY, 0]) true 
+			gw.wPolyline #([0+offsetX, 2*h+offsetY, 0], [3*b+offsetX-1, 2*h+offsetY, 0]) true 
 		)--end fn
 		
-		fn drawDiagonals  fieldX fieldY offsetX offsetY=
+		fn drawDiagonals fieldX fieldY offsetX offsetY=
 		(
-			gw.wPolyline #([0+offsetX, 0+offsetY, 0], [fieldX+offsetX, fieldY+offsetY, 0]) true rgb:#(cp_diagonals.color, cp_diagonals.color)
-			gw.wPolyline #([0+offsetX, fieldY+offsetY, 0], [fieldX+offsetX, 0+offsetY, 0]) true rgb:#(cp_diagonals.color, cp_diagonals.color)
+			gw.setColor #line cp_diagonals.color
+			gw.wPolyline #([0+offsetX, 0+offsetY, 0], [fieldX+offsetX, fieldY+offsetY, 0]) true 
+			gw.wPolyline #([0+offsetX, fieldY+offsetY, 0], [fieldX+offsetX, 0+offsetY, 0]) true 
 		)--end fn
-		
+				
 		/**
 			MAIN EXECUTION FUNCTION (LIVES IN CALLBACK)
 		**/
-		fn prepareAndDraw=
+		fn prepareAndDraw =
 		(
-			if ckb_thirds.checked or ckb_golden.checked or ckb_cross.checked or ckb_diagonals.checked or ckb_custom.checked or ckb_spiral.checked do
+			if ckb_thirds.checked or \
+				ckb_golden.checked or \
+				ckb_cross.checked or \
+				ckb_diagonals.checked or \
+				ckb_custom.checked or \
+				ckb_spiral.checked or \
+				ckb_triangle.checked do
 			(
 				-- PREPARE
 				if (displaysafeframes==false) do (displaysafeframes=true)	
@@ -316,10 +436,11 @@
 				if ckb_thirds.checked do drawThirds fieldX fieldY offsetX offsetY
 				if ckb_diagonals.checked do drawDiagonals fieldX fieldY offsetX offsetY
 				if ckb_cross.checked do drawCross fieldX fieldY offsetX offsetY
+				if ckb_triangle.checked do drawGoldenTriangle fieldX fieldY offsetX offsetY
 					
 				gw.enlargeUpdateRect #whole
 				gw.updateScreen()
-				redrawViews()				
+				completeRedraw()				
 			)--end if
 		)--end fn
 
@@ -327,99 +448,125 @@
 		/**************************************
 				EVENTS
 		**************************************/		
-		
-		-- ROLLOUT
-		on ro_imageCompHelper open do
+	
+		on gRo_imageCompHelper open do
 		(
+			rollout_from_INI theINI gRo_imageCompHelper iniProps
 			unregisterRedrawViewsCallback prepareAndDraw
 			registerRedrawViewsCallback prepareAndDraw
 			if (displaysafeframes==false) do (displaysafeframes=true)	
 			updateHighlightColors()
-			redrawViews() --redraw all views to show the safe frame immediately after starting the script
+			completeRedraw() --redraw all views to show the safe frame immediately after starting the script
 		)--end on
-		on ro_imageCompHelper close do
+		on gRo_imageCompHelper close do
 		(
 			unregisterRedrawViewsCallback prepareAndDraw
-			redrawViews()
+			completeRedraw()
+			rollout_to_INI theINI gRo_imageCompHelper iniProps
 		)--end on
-		
-		-- CHECKBUTTONS
+		on btn_cam pressed do
+		(
+			actionMan.executeAction 0 "40247"  -- Views: Select Viewport Node
+			max tti
+		)--end on
+		on btn_target pressed do
+		(
+			actionMan.executeAction 0 "40248"  -- Views: Select Viewport Node Target
+			max tti
+		)--end on
+		on cp_custom changed clr do
+		(
+			updateHighlightColors()
+			completeRedraw()
+		)--end on
+		on cp_thirds changed clr do
+		(
+			updateHighlightColors()
+			completeRedraw()
+		)--end on
+		on cp_diagonals changed clr do
+		(
+			updateHighlightColors()
+			completeRedraw()
+		)--end on
+		on cp_golden changed clr do
+		(
+			updateHighlightColors()
+			completeRedraw()
+		)--end on
+		on cp_spiral changed clr do
+		(
+			updateHighlightColors()
+			completeRedraw()
+		)--end on
+		on cp_cross changed clr do
+		(
+			updateHighlightColors()
+			completeRedraw()
+		)--end on
+		on cp_triangle changed clr do
+		(
+			updateHighlightColors()
+			completeRedraw()
+		)--end on
 		on ckb_thirds changed theState do
 		(
 			updateHighlightColors()
-			redrawViews()
+			completeRedraw()
 		)--end on
 		on ckb_golden changed theState do
 		(
 			updateHighlightColors()
-			redrawViews()
+			completeRedraw()
 		)--end on
 		on ckb_cross changed theState do
 		(
 			updateHighlightColors()
-			redrawViews()
+			completeRedraw()
 		)--end on
 		on ckb_diagonals changed theState do
 		(
 			updateHighlightColors()
-			redrawViews()
+			completeRedraw()
 		)--end on
 		on ckb_custom changed theState do
 		(
 			updateHighlightColors()
-			redrawViews()
+			completeRedraw()
 		)--end on
 		on ckb_spiral changed theState do
 		(
 			updateHighlightColors()
-			redrawViews()
+			completeRedraw()
 		)--end on
-		on ckb_spiral rightclick do
+		on ckb_spiral rightClick do
 		(
 			spiralMode += 1
 			if spiralMode > 3 do spiralMode = 0
-			redrawViews()
-		)--end on	
-		
-		-- COLORPICKERS
-		on cp_thirds changed clr do
-		(
-			redrawViews()
+			completeRedraw()
 		)--end on
-		on cp_golden changed clr do
+		on ckb_triangle changed theState do
 		(
-			redrawViews()
+			updateHighlightColors()
+			completeRedraw()
 		)--end on
-		on cp_cross changed clr do
+		on ckb_triangle rightClick do
 		(
-			redrawViews()
+			triangleMode += 1
+			if triangleMode > 1 do triangleMode = 0
+			completeRedraw()
 		)--end on
-		on cp_diagonals changed clr do
-		(
-			redrawViews()
-		)--end on
-		on cp_custom changed clr do
-		(
-			redrawViews()
-		)--end on
-		on cp_spiral changed clr do
-		(
-			redrawViews()
-		)--end on
-	
-		-- SPINNERS
 		on spn_XDivs changed theValue do
 		(
-			max views redraw
+			completeRedraw()
 		)--end on
 		on spn_YDivs changed theValue do
 		(
-			max views redraw
+			completeRedraw()
 		)--end on
+	)
 	
-	)--end ro
-	
--- 	createDialog ro_imageCompHelper style:#(#style_titlebar, #style_border, #style_sysmenu, #style_toolwindow)
-	CreateDialog ro_imageCompHelper
+-- 	createDialog gRo_imageCompHelper style:#(#style_titlebar, #style_border, #style_sysmenu, #style_toolwindow)
+	CreateDialog gRo_imageCompHelper
 )--end macro
 
