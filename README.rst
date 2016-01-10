@@ -7,10 +7,10 @@ This script aids in image composition inside 3ds Max by drawing guidelines insid
 Usage
 -----
 
-Run the script inside 3ds Max by drag & drop or via MAXScript > Run Script.
+Run the script inside 3ds Max by drag & drop or via *MAXScript > Run Script*.
 
 
 License
 -------
 
-GPL v3, see **LICENSE**
+GPL v3, see **LICENSE.rst**
