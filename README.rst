@@ -13,4 +13,4 @@ Run the script inside 3ds Max by drag & drop or via *MAXScript > Run Script*.
 License
 -------
 
-GPL v3, see **LICENSE.rst**
+GPL v3, see **LICENSE**
