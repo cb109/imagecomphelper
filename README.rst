@@ -17,6 +17,11 @@ Usage
 Run the script inside 3ds Max by drag & drop or via *MAXScript > Run Script*.
 
 
+Extended Version (with permission)
+----------------------------------
+
+https://thefactioncgi.com/the-faction-blog/2021/1/20/free-script-image-composition-helper-for-3ds-max-updated
+
 License
 -------
 
