@@ -22,6 +22,11 @@ Extended Version (with permission)
 
 https://thefactioncgi.com/the-faction-blog/2021/1/20/free-script-image-composition-helper-for-3ds-max-updated
 
+Video by ArchVizArtist
+----------------------
+
+https://archvizartist.com/imagecomphelper/
+
 License
 -------
 
