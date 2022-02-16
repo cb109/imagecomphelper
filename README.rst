@@ -3,7 +3,12 @@ Image Composition Helper
 
 This script aids in image composition inside 3ds Max by drawing guidelines inside the active viewport. A number of patterns can be visualized including the rule of thirds, golden ration, golden triangle, golden spiral etc.
 
-.. image:: http://cbuelter.de/wp-content/uploads/2012/09/goldenSpiral.jpg
+https://blog.cbuelter.de/176/
+
+
+.. image:: https://blog.cbuelter.de/media/images/imageCompHelper.width-800.jpg
+
+.. image:: https://blog.cbuelter.de/media/images/imageCompHelper13_GUI.width-500.jpg
 
 
 Usage
